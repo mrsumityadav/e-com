@@ -156,7 +156,7 @@ module.exports.createOrder = async (req, res, next) => {
             return res.status(404).json({ message: "Product not found" });
         }
         const option = {
-            amount: product.amount * 100,
+            amount: product.price * 100,
             currency: "INR",
             receipt: product._id
         }
@@ -166,7 +166,7 @@ module.exports.createOrder = async (req, res, next) => {
         })
         const payment = await paymentModel.create({
             orderId: order._id,
-            amount: product.amount,
+            amount: product.price,
             currency: "INR",
             status: "pending"
         })
