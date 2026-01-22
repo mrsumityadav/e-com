@@ -165,7 +165,7 @@ module.exports.createOrder = async (req, res, next) => {
             order
         })
         const payment = await paymentModel.create({
-            orderId: order._id,
+            orderId: order.id,
             amount: product.price,
             currency: "INR",
             status: "pending"
