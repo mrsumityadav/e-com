@@ -4,6 +4,7 @@ const paymentModel = require('../models/payment.model')
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const blockListedModel = require('../models/blacklist.model')
+const crypto = require("crypto");
 
 const Razorpay = require('razorpay');
 
@@ -177,40 +178,48 @@ module.exports.createOrder = async (req, res, next) => {
 
 module.exports.verifyPayment = async (req, res, next) => {
     try {
-        const { orderId, paymentId, signature } = req.body
-        const secret = process.env.RAZORPAY_KEY_SECRET
-        const { validatePaymentVerification } = require('../node_modules/razorpay/dist/utils/razorpay-utils.js')
-        const isValid = validatePaymentVerification({
-            order_id: orderId,
-            payment_id: paymentId,
-        }, secret, signature)
-        if (isValid) {
-            const payment = await paymentModel.findOne({ orderId: orderId })
-            if (!payment) {
-                return res.status(404).json({ message: "Payment record not found" });
-            }
-            payment.paymentId = paymentId;
-            payment.signature = signature
-            payment.status = "success"
+        const { orderId, paymentId, signature } = req.body;
 
-            await payment.save()
+        const body = orderId + "|" + paymentId;
 
-            res.status(200).json({
-                message: "Payment verified successfully"
-            })
+        const expectedSignature = crypto
+            .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+            .update(body)
+            .digest("hex");
+
+        const isValid = expectedSignature === signature;
+
+        if (!isValid) {
+            await paymentModel.findOneAndUpdate(
+                { orderId },
+                { status: "failed" }
+            );
+
+            return res.status(400).json({
+                message: "Payment verification failed",
+            });
         }
-        else {
-            const payment = await paymentModel.findOne({ orderId: orderId })
-            if (!payment) {
-                return res.status(404).json({ message: "Payment record not found" });
-            }
-            payment.status = 'failed'
-            await payment.save()
-            res.status(400).json({
-                message: "Payment verification failed"
-            })
+
+        // ✅ payment success
+        const payment = await paymentModel.findOne({ orderId });
+
+        if (!payment) {
+            return res.status(404).json({
+                message: "Payment record not found",
+            });
         }
+
+        payment.paymentId = paymentId;
+        payment.signature = signature;
+        payment.status = "success";
+
+        await payment.save();
+
+        return res.status(200).json({
+            message: "Payment verified successfully",
+        });
+
     } catch (error) {
-        next(error)
+        next(error);
     }
-}
+};

@@ -12,6 +12,6 @@ router.get('/products', authMiddleware.isAuthenticated, userController.getProduc
 router.get('/product/:id', authMiddleware.isAuthenticated, userController.getProductById)
 
 router.get('/order/:id', authMiddleware.isAuthenticated, userController.createOrder)
-router.get('/verify/:id', authMiddleware.isAuthenticated, userController.verifyPayment)
+router.post('/verify/:id', authMiddleware.isAuthenticated, userController.verifyPayment)
 
 module.exports = router
